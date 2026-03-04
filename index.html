@@ -459,6 +459,7 @@
     new Date().toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric', weekday:'short' });
 
   loadFromDB();
+  setInterval(pollDB, 10000);
 
   // ─── DB (JSONBin.io) ─────────────────────────────────────
   async function loadFromDB() {
@@ -476,6 +477,26 @@
       setSyncBadge('error', '✕ 연결 실패');
     }
     render();
+  }
+
+  async function pollDB() {
+    // 텍스트 입력 중이면 건너뜀 (입력 방해 방지)
+    if (document.activeElement.tagName === 'TEXTAREA' ||
+        document.activeElement.tagName === 'INPUT') return;
+    try {
+      const url = cfg.binUrl.replace(/\/latest$/, '') + '/latest';
+      const res = await fetch(url, { headers: { 'X-Master-Key': cfg.apiKey } });
+      if (!res.ok) return;
+      const json = await res.json();
+      const remote = Array.isArray(json.record?.stores) ? json.record.stores : [];
+      // 변경된 경우에만 업데이트
+      if (JSON.stringify(remote) !== JSON.stringify(stores)) {
+        stores = remote;
+        localStorage.setItem('stores', JSON.stringify(stores));
+        render();
+        setSyncBadge('synced', '✓ 업데이트됨');
+      }
+    } catch (e) { /* 폴링 실패는 무시 */ }
   }
 
   async function saveToDB() {
