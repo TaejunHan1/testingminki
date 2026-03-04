@@ -100,6 +100,57 @@
       display: flex;
       gap: 10px;
     }
+
+    /* ─── Filter Tabs ─── */
+    .filter-bar {
+      max-width: 640px;
+      margin: 14px auto 0;
+      padding: 0 20px;
+      display: flex;
+      gap: 8px;
+    }
+    .filter-tab {
+      flex: 1;
+      padding: 10px 8px;
+      border: none;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      background: #fff;
+      color: #8b95a1;
+      border: 1.5px solid #f2f4f6;
+      transition: all 0.15s;
+    }
+    .filter-tab.active {
+      background: #3182f6;
+      color: #fff;
+      border-color: #3182f6;
+    }
+    .filter-tab .tab-count {
+      display: inline-block;
+      margin-left: 4px;
+      font-size: 12px;
+      opacity: 0.8;
+    }
+
+    /* ─── Region Header ─── */
+    .region-header {
+      font-size: 13px;
+      font-weight: 700;
+      color: #8b95a1;
+      letter-spacing: 0.3px;
+      padding: 4px 4px 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .region-header::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #e8ecef;
+    }
     .stat-chip {
       background: #fff;
       border-radius: 12px;
@@ -418,6 +469,13 @@
     </div>
   </div>
 
+  <!-- Filter Tabs -->
+  <div class="filter-bar">
+    <button class="filter-tab active" id="tab-all"      onclick="setFilter('all')">전체 <span class="tab-count" id="cnt-all"></span></button>
+    <button class="filter-tab"        id="tab-uncalled" onclick="setFilter('uncalled')">미통화 <span class="tab-count" id="cnt-uncalled"></span></button>
+    <button class="filter-tab"        id="tab-called"   onclick="setFilter('called')">통화완료 <span class="tab-count" id="cnt-called"></span></button>
+  </div>
+
   <!-- Store List -->
   <div class="store-list" id="store-list"></div>
 
@@ -433,6 +491,10 @@
       <div class="form-group">
         <label class="form-label">전화번호</label>
         <input class="form-input" id="input-phone" type="tel" placeholder="010-0000-0000" maxlength="20" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">지역</label>
+        <input class="form-input" id="input-region" type="text" placeholder="예) 경기, 부산, 서울" maxlength="20" />
       </div>
       <div class="modal-footer">
         <button class="btn-cancel" onclick="closeModal('store-modal')">취소</button>
@@ -453,6 +515,7 @@
   let stores = [];
   let editingId = null;
   let notesTimer = null;
+  let currentFilter = 'all';
 
   // ─── Init ─────────────────────────────────────────────────
   document.getElementById('today-date').textContent =
@@ -539,27 +602,53 @@
     setSyncBadge('syncing', '↻ 저장 중');
   }
 
+  // ─── Filter ───────────────────────────────────────────────
+  function setFilter(f) {
+    currentFilter = f;
+    ['all','uncalled','called'].forEach(k => {
+      document.getElementById('tab-' + k).classList.toggle('active', k === f);
+    });
+    render();
+  }
+
   // ─── Render ───────────────────────────────────────────────
   function render() {
     const list = document.getElementById('store-list');
-    const total = stores.length;
-    const called = stores.filter(s => s.called).length;
+    const total    = stores.length;
+    const called   = stores.filter(s => s.called).length;
+    const uncalled = total - called;
 
-    document.getElementById('stat-total').textContent   = total;
-    document.getElementById('stat-called').textContent  = called;
-    document.getElementById('stat-uncalled').textContent = total - called;
+    document.getElementById('stat-total').textContent    = total;
+    document.getElementById('stat-called').textContent   = called;
+    document.getElementById('stat-uncalled').textContent = uncalled;
+    document.getElementById('cnt-all').textContent       = total;
+    document.getElementById('cnt-called').textContent    = called;
+    document.getElementById('cnt-uncalled').textContent  = uncalled;
 
-    if (total === 0) {
+    // 필터 적용
+    let filtered = stores;
+    if (currentFilter === 'called')   filtered = stores.filter(s => s.called);
+    if (currentFilter === 'uncalled') filtered = stores.filter(s => !s.called);
+
+    if (filtered.length === 0) {
       list.innerHTML = `
         <div class="empty-state">
           <div class="empty-icon">📋</div>
-          <div class="empty-title">등록된 매장이 없어요</div>
-          <div class="empty-desc">+ 매장 추가 버튼을 눌러 시작해보세요</div>
+          <div class="empty-title">${total === 0 ? '등록된 매장이 없어요' : '해당하는 매장이 없어요'}</div>
+          <div class="empty-desc">${total === 0 ? '+ 매장 추가 버튼을 눌러 시작해보세요' : '다른 필터를 선택해보세요'}</div>
         </div>`;
       return;
     }
 
-    list.innerHTML = stores.map(s => `
+    // 지역별 그룹핑
+    const groups = {};
+    filtered.forEach(s => {
+      const r = s.region || '기타';
+      if (!groups[r]) groups[r] = [];
+      groups[r].push(s);
+    });
+
+    const cardHtml = s => `
       <div class="store-card ${s.called ? 'called' : ''}">
         <div class="card-top">
           <div class="call-toggle-wrap ${s.called ? 'active' : ''}" onclick="toggleCall('${s.id}')">
@@ -588,7 +677,11 @@
             rows="3"
           >${escHtml(s.notes || '')}</textarea>
         </div>
-      </div>
+      </div>`;
+
+    list.innerHTML = Object.entries(groups).map(([region, list]) => `
+      <div class="region-header">${escHtml(region)}</div>
+      ${list.map(cardHtml).join('')}
     `).join('');
   }
 
@@ -628,8 +721,9 @@
   function openAddModal() {
     editingId = null;
     document.getElementById('store-modal-title').textContent = '매장 추가';
-    document.getElementById('input-name').value  = '';
-    document.getElementById('input-phone').value = '';
+    document.getElementById('input-name').value   = '';
+    document.getElementById('input-phone').value  = '';
+    document.getElementById('input-region').value = '';
     openModal('store-modal');
     setTimeout(() => document.getElementById('input-name').focus(), 200);
   }
@@ -639,23 +733,25 @@
     if (!s) return;
     editingId = id;
     document.getElementById('store-modal-title').textContent = '매장 수정';
-    document.getElementById('input-name').value  = s.name;
-    document.getElementById('input-phone').value = s.phone;
+    document.getElementById('input-name').value   = s.name;
+    document.getElementById('input-phone').value  = s.phone;
+    document.getElementById('input-region').value = s.region || '';
     openModal('store-modal');
     setTimeout(() => document.getElementById('input-name').focus(), 200);
   }
 
   function saveStore() {
-    const name  = document.getElementById('input-name').value.trim();
-    const phone = document.getElementById('input-phone').value.trim();
+    const name   = document.getElementById('input-name').value.trim();
+    const phone  = document.getElementById('input-phone').value.trim();
+    const region = document.getElementById('input-region').value.trim() || '기타';
     if (!name)  { alert('매장명을 입력해주세요.'); return; }
     if (!phone) { alert('전화번호를 입력해주세요.'); return; }
 
     if (editingId) {
       const s = stores.find(s => s.id === editingId);
-      if (s) { s.name = name; s.phone = phone; }
+      if (s) { s.name = name; s.phone = phone; s.region = region; }
     } else {
-      stores.push({ id: uid(), name, phone, called: false, calledAt: null, notes: '' });
+      stores.push({ id: uid(), name, phone, region, called: false, calledAt: null, notes: '' });
     }
     save();
     closeModal('store-modal');
