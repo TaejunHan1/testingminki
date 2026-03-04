@@ -351,36 +351,6 @@
     }
     .btn-confirm:hover { background: #1b6ef3; }
 
-    /* Settings specific */
-    .settings-divider {
-      border: none;
-      border-top: 1px solid #f2f4f6;
-      margin: 20px 0 16px;
-    }
-    .settings-section-title {
-      font-size: 12px;
-      font-weight: 700;
-      color: #8b95a1;
-      letter-spacing: 0.5px;
-      margin-bottom: 14px;
-    }
-    .guide-box {
-      background: #f8f9fa;
-      border-radius: 14px;
-      padding: 14px 16px;
-      margin-bottom: 16px;
-    }
-    .guide-box ol {
-      padding-left: 18px;
-      margin: 0;
-    }
-    .guide-box li {
-      font-size: 13px;
-      color: #4e5968;
-      line-height: 1.7;
-    }
-    .guide-box a { color: #3182f6; text-decoration: none; }
-    .guide-box a:hover { text-decoration: underline; }
 
     /* ─── Responsive ─── */
     @media (min-width: 641px) {
@@ -404,8 +374,7 @@
         <div class="header-subtitle" id="today-date"></div>
       </div>
       <div class="header-actions">
-        <div class="sync-badge no-db" id="sync-badge" onclick="openSettings()">⚠ DB 미설정</div>
-        <button class="btn-settings" onclick="openSettings()" title="데이터베이스 설정">⚙️</button>
+        <div class="sync-badge" id="sync-badge"></div>
         <button class="btn-add" onclick="openAddModal()">＋ 매장 추가</button>
       </div>
     </div>
@@ -447,41 +416,13 @@
     </div>
   </div>
 
-  <!-- ── 설정 Modal ── -->
-  <div class="modal-overlay" id="settings-modal" onclick="handleOverlayClick(event,'settings-modal')">
-    <div class="modal">
-      <div class="modal-handle"></div>
-      <div class="modal-title">데이터베이스 설정</div>
-
-      <div class="guide-box">
-        <ol>
-          <li><a href="https://jsonbin.io" target="_blank">jsonbin.io</a> 에 무료 가입</li>
-          <li>대시보드 → <b>API Keys</b> 탭에서 Master Key 복사</li>
-          <li><b>Bins</b> → <b>Create Bin</b> → 빈 JSON <code>{}</code> 으로 생성</li>
-          <li>생성된 Bin의 URL 복사 (예: <code>https://api.jsonbin.io/v3/b/abc123</code>)</li>
-        </ol>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Master Key (X-Master-Key)</label>
-        <input class="form-input" id="input-apikey" type="password" placeholder="$2b$10$..." />
-      </div>
-      <div class="form-group">
-        <label class="form-label">Bin URL</label>
-        <input class="form-input" id="input-binurl" type="url" placeholder="https://api.jsonbin.io/v3/b/..." />
-        <div class="form-hint">저장하면 즉시 서버에서 데이터를 불러옵니다.</div>
-      </div>
-
-      <div class="modal-footer">
-        <button class="btn-cancel" onclick="closeModal('settings-modal')">취소</button>
-        <button class="btn-confirm" onclick="saveSettings()">연결</button>
-      </div>
-    </div>
-  </div>
 
 <script>
   // ─── Config ──────────────────────────────────────────────
-  let cfg = JSON.parse(localStorage.getItem('db_cfg') || 'null') || { apiKey: '', binUrl: '' };
+  const cfg = {
+    apiKey: '$2a$10$SI.oUq807G0gOKxy0kwrKe3kLuzUvgImXJoKTWhF.UvGsMXedri2e',
+    binUrl: 'https://api.jsonbin.io/v3/b/69a7e7dad0ea881f40ed54aa'
+  };
 
   // ─── State ───────────────────────────────────────────────
   let stores = [];
@@ -492,13 +433,7 @@
   document.getElementById('today-date').textContent =
     new Date().toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric', weekday:'short' });
 
-  if (cfg.apiKey && cfg.binUrl) {
-    loadFromDB();
-  } else {
-    stores = JSON.parse(localStorage.getItem('stores') || '[]');
-    render();
-    setSyncBadge('no-db', '⚠ DB 미설정');
-  }
+  loadFromDB();
 
   // ─── DB (JSONBin.io) ─────────────────────────────────────
   async function loadFromDB() {
@@ -672,24 +607,6 @@
     save();
     closeModal('store-modal');
     render();
-  }
-
-  // ─── Settings Modal ───────────────────────────────────────
-  function openSettings() {
-    document.getElementById('input-apikey').value = cfg.apiKey || '';
-    document.getElementById('input-binurl').value = cfg.binUrl || '';
-    openModal('settings-modal');
-  }
-
-  async function saveSettings() {
-    const apiKey = document.getElementById('input-apikey').value.trim();
-    const binUrl = document.getElementById('input-binurl').value.trim();
-    if (!apiKey) { alert('Master Key를 입력해주세요.'); return; }
-    if (!binUrl) { alert('Bin URL을 입력해주세요.'); return; }
-    cfg = { apiKey, binUrl };
-    localStorage.setItem('db_cfg', JSON.stringify(cfg));
-    closeModal('settings-modal');
-    await loadFromDB();
   }
 
   // ─── Modal helpers ────────────────────────────────────────
