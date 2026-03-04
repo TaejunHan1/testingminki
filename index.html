@@ -150,24 +150,49 @@
       align-items: flex-start;
       gap: 14px;
     }
-    .call-toggle {
+    /* Call Toggle Switch */
+    .call-toggle-wrap {
       flex-shrink: 0;
-      width: 48px;
-      height: 48px;
-      border-radius: 14px;
-      border: 2px solid #e8ecef;
-      background: #f8f9fa;
       display: flex;
+      flex-direction: column;
       align-items: center;
-      justify-content: center;
+      gap: 6px;
       cursor: pointer;
-      transition: all 0.2s;
-      font-size: 20px;
+      user-select: none;
     }
-    .call-toggle.active {
-      background: #e8f3ff;
-      border-color: #3182f6;
+    .call-toggle-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #8b95a1;
+      letter-spacing: 0.2px;
     }
+    .call-toggle-wrap.active .call-toggle-label { color: #3182f6; }
+    .toggle-switch {
+      width: 52px;
+      height: 30px;
+      border-radius: 15px;
+      background: #e8ecef;
+      position: relative;
+      transition: background 0.2s;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      display: block;
+    }
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #fff;
+      top: 3px;
+      left: 3px;
+      transition: transform 0.2s;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+    }
+    .toggle-switch.on { background: #3182f6; }
+    .toggle-switch.on::after { transform: translateX(22px); }
 
     .card-info { flex: 1; min-width: 0; }
     .store-name {
@@ -516,16 +541,14 @@
     list.innerHTML = stores.map(s => `
       <div class="store-card ${s.called ? 'called' : ''}">
         <div class="card-top">
-          <button class="call-toggle ${s.called ? 'active' : ''}" onclick="toggleCall('${s.id}')">
-            ${s.called ? '✅' : '📞'}
-          </button>
+          <div class="call-toggle-wrap ${s.called ? 'active' : ''}" onclick="toggleCall('${s.id}')">
+            <button class="toggle-switch ${s.called ? 'on' : ''}"></button>
+            <span class="call-toggle-label">${s.called ? '통화완료' : '미통화'}</span>
+          </div>
           <div class="card-info">
             <div class="store-name">${escHtml(s.name)}</div>
             <div class="store-phone-row">
               <a class="store-phone" href="tel:${escHtml(s.phone)}">${escHtml(s.phone)}</a>
-              <span class="call-badge ${s.called ? 'done' : 'pending'}">
-                ${s.called ? '통화완료' : '미통화'}
-              </span>
             </div>
             ${s.calledAt ? `<div class="call-time">통화 ${formatTime(s.calledAt)}</div>` : ''}
           </div>
@@ -540,6 +563,7 @@
             class="notes-textarea"
             placeholder="특이사항을 입력하세요..."
             oninput="onNotesInput('${s.id}', this.value)"
+            onblur="onNotesBlur('${s.id}', this.value)"
             rows="3"
           >${escHtml(s.notes || '')}</textarea>
         </div>
@@ -562,6 +586,14 @@
     if (!s) return;
     s.notes = value;
     saveDebounced();
+  }
+
+  function onNotesBlur(id, value) {
+    const s = stores.find(s => s.id === id);
+    if (!s) return;
+    s.notes = value;
+    clearTimeout(notesTimer);
+    save();
   }
 
   function deleteStore(id) {
