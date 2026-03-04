@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>전자담배 무인점포 관리</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f6f8;
+      color: #191f28;
+      min-height: 100vh;
+    }
+
+    /* ─── Header ─── */
+    .header {
+      background: #fff;
+      border-bottom: 1px solid #f2f4f6;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-inner {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 20px 20px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .header-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #191f28;
+      letter-spacing: -0.3px;
+    }
+    .header-subtitle {
+      font-size: 13px;
+      color: #8b95a1;
+      margin-top: 2px;
+    }
+    .header-actions { display: flex; align-items: center; gap: 8px; }
+
+    /* Sync badge */
+    .sync-badge {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 10px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s;
+    }
+    .sync-badge.idle { background: #f2f4f6; color: #8b95a1; display: none; }
+    .sync-badge.syncing { background: #fff8e1; color: #f59f00; display: flex; }
+    .sync-badge.synced  { background: #e8f8f0; color: #20c997; display: flex; }
+    .sync-badge.error   { background: #fff0f0; color: #f03e3e; display: flex; }
+    .sync-badge.no-db   { background: #fff2ec; color: #ff6b35; display: flex; cursor: pointer; }
+
+    .btn-settings {
+      width: 38px;
+      height: 38px;
+      border: none;
+      background: #f5f6f8;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+    .btn-settings:hover { background: #ebedf0; }
+
+    .btn-add {
+      background: #3182f6;
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 10px 18px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s;
+    }
+    .btn-add:hover { background: #1b6ef3; }
+
+    /* ─── Stats Bar ─── */
+    .stats-bar {
+      max-width: 640px;
+      margin: 16px auto 0;
+      padding: 0 20px;
+      display: flex;
+      gap: 10px;
+    }
+    .stat-chip {
+      background: #fff;
+      border-radius: 12px;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #4e5968;
+      flex: 1;
+      text-align: center;
+      border: 1px solid #f2f4f6;
+    }
+    .stat-chip span {
+      display: block;
+      font-size: 20px;
+      font-weight: 700;
+      color: #191f28;
+      margin-bottom: 2px;
+    }
+    .stat-chip.called span  { color: #3182f6; }
+    .stat-chip.uncalled span { color: #ff6b35; }
+
+    /* ─── Store List ─── */
+    .store-list {
+      max-width: 640px;
+      margin: 16px auto 80px;
+      padding: 0 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* ─── Store Card ─── */
+    .store-card {
+      background: #fff;
+      border-radius: 20px;
+      padding: 20px;
+      border: 1.5px solid #f2f4f6;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .store-card.called {
+      border-color: #e8f3ff;
+      background: #f8fbff;
+    }
+    .store-card:hover { box-shadow: 0 2px 16px rgba(0,0,0,0.07); }
+
+    .card-top {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+    .call-toggle {
+      flex-shrink: 0;
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      border: 2px solid #e8ecef;
+      background: #f8f9fa;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 20px;
+    }
+    .call-toggle.active {
+      background: #e8f3ff;
+      border-color: #3182f6;
+    }
+
+    .card-info { flex: 1; min-width: 0; }
+    .store-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: #191f28;
+      letter-spacing: -0.2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .store-phone-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 5px;
+      flex-wrap: wrap;
+    }
+    .store-phone {
+      font-size: 14px;
+      color: #3182f6;
+      text-decoration: none;
+      font-weight: 500;
+      letter-spacing: 0.2px;
+    }
+    .store-phone:hover { text-decoration: underline; }
+
+    .call-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 20px;
+    }
+    .call-badge.done    { background: #e8f3ff; color: #3182f6; }
+    .call-badge.pending { background: #fff2ec; color: #ff6b35; }
+
+    .card-actions {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .btn-icon {
+      width: 34px;
+      height: 34px;
+      border: none;
+      background: #f5f6f8;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+    .btn-icon:hover { background: #ebedf0; }
+    .btn-icon.delete:hover { background: #fff0f0; }
+
+    .call-time {
+      font-size: 12px;
+      color: #8b95a1;
+      margin-top: 8px;
+      text-align: right;
+    }
+
+    /* Notes */
+    .notes-section {
+      margin-top: 14px;
+      border-top: 1px solid #f2f4f6;
+      padding-top: 14px;
+    }
+    .notes-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #8b95a1;
+      margin-bottom: 8px;
+      letter-spacing: 0.3px;
+    }
+    .notes-textarea {
+      width: 100%;
+      border: 1.5px solid #f2f4f6;
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 14px;
+      color: #191f28;
+      background: #f8f9fa;
+      resize: none;
+      font-family: inherit;
+      line-height: 1.5;
+      transition: border-color 0.15s;
+      min-height: 72px;
+    }
+    .notes-textarea:focus {
+      outline: none;
+      border-color: #3182f6;
+      background: #fff;
+    }
+    .notes-textarea::placeholder { color: #c5ccd4; }
+
+    /* ─── Empty State ─── */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #8b95a1;
+    }
+    .empty-icon  { font-size: 48px; margin-bottom: 16px; }
+    .empty-title { font-size: 17px; font-weight: 600; color: #4e5968; margin-bottom: 8px; }
+    .empty-desc  { font-size: 14px; }
+
+    /* ─── Modal (shared) ─── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(25,31,40,0.45);
+      z-index: 200;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: #fff;
+      border-radius: 24px 24px 0 0;
+      padding: 28px 24px 40px;
+      width: 100%;
+      max-width: 640px;
+      transform: translateY(20px);
+      transition: transform 0.2s;
+    }
+    .modal-overlay.open .modal { transform: translateY(0); }
+    .modal-handle {
+      width: 40px;
+      height: 4px;
+      background: #e8ecef;
+      border-radius: 2px;
+      margin: 0 auto 24px;
+    }
+    .modal-title { font-size: 18px; font-weight: 700; color: #191f28; margin-bottom: 24px; }
+
+    .form-group { margin-bottom: 16px; }
+    .form-label { font-size: 13px; font-weight: 600; color: #4e5968; margin-bottom: 8px; display: block; }
+    .form-hint  { font-size: 12px; color: #8b95a1; margin-top: 6px; line-height: 1.5; }
+    .form-input {
+      width: 100%;
+      border: 1.5px solid #e8ecef;
+      border-radius: 14px;
+      padding: 14px 16px;
+      font-size: 15px;
+      color: #191f28;
+      font-family: inherit;
+      transition: border-color 0.15s;
+    }
+    .form-input:focus { outline: none; border-color: #3182f6; }
+    .form-input::placeholder { color: #c5ccd4; }
+
+    .modal-footer { display: flex; gap: 10px; margin-top: 24px; }
+    .btn-cancel {
+      flex: 1;
+      padding: 15px;
+      border: none;
+      background: #f5f6f8;
+      border-radius: 14px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #4e5968;
+      cursor: pointer;
+    }
+    .btn-confirm {
+      flex: 2;
+      padding: 15px;
+      border: none;
+      background: #3182f6;
+      border-radius: 14px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-confirm:hover { background: #1b6ef3; }
+
+    /* Settings specific */
+    .settings-divider {
+      border: none;
+      border-top: 1px solid #f2f4f6;
+      margin: 20px 0 16px;
+    }
+    .settings-section-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #8b95a1;
+      letter-spacing: 0.5px;
+      margin-bottom: 14px;
+    }
+    .guide-box {
+      background: #f8f9fa;
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+    }
+    .guide-box ol {
+      padding-left: 18px;
+      margin: 0;
+    }
+    .guide-box li {
+      font-size: 13px;
+      color: #4e5968;
+      line-height: 1.7;
+    }
+    .guide-box a { color: #3182f6; text-decoration: none; }
+    .guide-box a:hover { text-decoration: underline; }
+
+    /* ─── Responsive ─── */
+    @media (min-width: 641px) {
+      .modal-overlay { align-items: center; }
+      .modal {
+        border-radius: 24px;
+        margin: 20px;
+        padding: 32px 28px 32px;
+      }
+      .modal-handle { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-inner">
+      <div>
+        <div class="header-title">전자담배 무인점포</div>
+        <div class="header-subtitle" id="today-date"></div>
+      </div>
+      <div class="header-actions">
+        <div class="sync-badge no-db" id="sync-badge" onclick="openSettings()">⚠ DB 미설정</div>
+        <button class="btn-settings" onclick="openSettings()" title="데이터베이스 설정">⚙️</button>
+        <button class="btn-add" onclick="openAddModal()">＋ 매장 추가</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-bar">
+    <div class="stat-chip">
+      <span id="stat-total">0</span>전체
+    </div>
+    <div class="stat-chip called">
+      <span id="stat-called">0</span>통화완료
+    </div>
+    <div class="stat-chip uncalled">
+      <span id="stat-uncalled">0</span>미통화
+    </div>
+  </div>
+
+  <!-- Store List -->
+  <div class="store-list" id="store-list"></div>
+
+  <!-- ── 매장 추가/수정 Modal ── -->
+  <div class="modal-overlay" id="store-modal" onclick="handleOverlayClick(event,'store-modal')">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-title" id="store-modal-title">매장 추가</div>
+      <div class="form-group">
+        <label class="form-label">매장명</label>
+        <input class="form-input" id="input-name" type="text" placeholder="예) 강남 1호점" maxlength="30" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">전화번호</label>
+        <input class="form-input" id="input-phone" type="tel" placeholder="010-0000-0000" maxlength="20" />
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" onclick="closeModal('store-modal')">취소</button>
+        <button class="btn-confirm" onclick="saveStore()">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 설정 Modal ── -->
+  <div class="modal-overlay" id="settings-modal" onclick="handleOverlayClick(event,'settings-modal')">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-title">데이터베이스 설정</div>
+
+      <div class="guide-box">
+        <ol>
+          <li><a href="https://jsonbin.io" target="_blank">jsonbin.io</a> 에 무료 가입</li>
+          <li>대시보드 → <b>API Keys</b> 탭에서 Master Key 복사</li>
+          <li><b>Bins</b> → <b>Create Bin</b> → 빈 JSON <code>{}</code> 으로 생성</li>
+          <li>생성된 Bin의 URL 복사 (예: <code>https://api.jsonbin.io/v3/b/abc123</code>)</li>
+        </ol>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Master Key (X-Master-Key)</label>
+        <input class="form-input" id="input-apikey" type="password" placeholder="$2b$10$..." />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Bin URL</label>
+        <input class="form-input" id="input-binurl" type="url" placeholder="https://api.jsonbin.io/v3/b/..." />
+        <div class="form-hint">저장하면 즉시 서버에서 데이터를 불러옵니다.</div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-cancel" onclick="closeModal('settings-modal')">취소</button>
+        <button class="btn-confirm" onclick="saveSettings()">연결</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // ─── Config ──────────────────────────────────────────────
+  let cfg = JSON.parse(localStorage.getItem('db_cfg') || 'null') || { apiKey: '', binUrl: '' };
+
+  // ─── State ───────────────────────────────────────────────
+  let stores = [];
+  let editingId = null;
+  let notesTimer = null;
+
+  // ─── Init ─────────────────────────────────────────────────
+  document.getElementById('today-date').textContent =
+    new Date().toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric', weekday:'short' });
+
+  if (cfg.apiKey && cfg.binUrl) {
+    loadFromDB();
+  } else {
+    stores = JSON.parse(localStorage.getItem('stores') || '[]');
+    render();
+    setSyncBadge('no-db', '⚠ DB 미설정');
+  }
+
+  // ─── DB (JSONBin.io) ─────────────────────────────────────
+  async function loadFromDB() {
+    setSyncBadge('syncing', '↻ 불러오는 중');
+    try {
+      const url = cfg.binUrl.replace(/\/latest$/, '') + '/latest';
+      const res = await fetch(url, { headers: { 'X-Master-Key': cfg.apiKey } });
+      if (!res.ok) throw new Error(res.status);
+      const json = await res.json();
+      stores = Array.isArray(json.record?.stores) ? json.record.stores : [];
+      localStorage.setItem('stores', JSON.stringify(stores));
+      setSyncBadge('synced', '✓ 동기화됨');
+    } catch (e) {
+      stores = JSON.parse(localStorage.getItem('stores') || '[]');
+      setSyncBadge('error', '✕ 연결 실패');
+    }
+    render();
+  }
+
+  async function saveToDB() {
+    if (!cfg.apiKey || !cfg.binUrl) return;
+    setSyncBadge('syncing', '↻ 저장 중');
+    try {
+      const binId = cfg.binUrl.replace(/\/latest$/, '').split('/').pop();
+      const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Master-Key': cfg.apiKey
+        },
+        body: JSON.stringify({ stores })
+      });
+      if (!res.ok) throw new Error(res.status);
+      setSyncBadge('synced', '✓ 저장됨');
+    } catch (e) {
+      setSyncBadge('error', '✕ 저장 실패');
+    }
+  }
+
+  function setSyncBadge(state, text) {
+    const el = document.getElementById('sync-badge');
+    el.className = 'sync-badge ' + state;
+    el.textContent = text;
+  }
+
+  // ─── Save ─────────────────────────────────────────────────
+  function save() {
+    localStorage.setItem('stores', JSON.stringify(stores));
+    saveToDB();
+  }
+
+  // notes 는 debounce (타이핑 중 매번 API 호출 방지)
+  function saveDebounced() {
+    localStorage.setItem('stores', JSON.stringify(stores));
+    clearTimeout(notesTimer);
+    notesTimer = setTimeout(() => saveToDB(), 1200);
+    setSyncBadge('syncing', '↻ 저장 중');
+  }
+
+  // ─── Render ───────────────────────────────────────────────
+  function render() {
+    const list = document.getElementById('store-list');
+    const total = stores.length;
+    const called = stores.filter(s => s.called).length;
+
+    document.getElementById('stat-total').textContent   = total;
+    document.getElementById('stat-called').textContent  = called;
+    document.getElementById('stat-uncalled').textContent = total - called;
+
+    if (total === 0) {
+      list.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">📋</div>
+          <div class="empty-title">등록된 매장이 없어요</div>
+          <div class="empty-desc">+ 매장 추가 버튼을 눌러 시작해보세요</div>
+        </div>`;
+      return;
+    }
+
+    list.innerHTML = stores.map(s => `
+      <div class="store-card ${s.called ? 'called' : ''}">
+        <div class="card-top">
+          <button class="call-toggle ${s.called ? 'active' : ''}" onclick="toggleCall('${s.id}')">
+            ${s.called ? '✅' : '📞'}
+          </button>
+          <div class="card-info">
+            <div class="store-name">${escHtml(s.name)}</div>
+            <div class="store-phone-row">
+              <a class="store-phone" href="tel:${escHtml(s.phone)}">${escHtml(s.phone)}</a>
+              <span class="call-badge ${s.called ? 'done' : 'pending'}">
+                ${s.called ? '통화완료' : '미통화'}
+              </span>
+            </div>
+            ${s.calledAt ? `<div class="call-time">통화 ${formatTime(s.calledAt)}</div>` : ''}
+          </div>
+          <div class="card-actions">
+            <button class="btn-icon" onclick="openEditModal('${s.id}')" title="수정">✏️</button>
+            <button class="btn-icon delete" onclick="deleteStore('${s.id}')" title="삭제">🗑️</button>
+          </div>
+        </div>
+        <div class="notes-section">
+          <div class="notes-label">특이사항</div>
+          <textarea
+            class="notes-textarea"
+            placeholder="특이사항을 입력하세요..."
+            oninput="onNotesInput('${s.id}', this.value)"
+            rows="3"
+          >${escHtml(s.notes || '')}</textarea>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // ─── Actions ──────────────────────────────────────────────
+  function toggleCall(id) {
+    const s = stores.find(s => s.id === id);
+    if (!s) return;
+    s.called = !s.called;
+    s.calledAt = s.called ? Date.now() : null;
+    save();
+    render();
+  }
+
+  function onNotesInput(id, value) {
+    const s = stores.find(s => s.id === id);
+    if (!s) return;
+    s.notes = value;
+    saveDebounced();
+  }
+
+  function deleteStore(id) {
+    if (!confirm('이 매장을 삭제할까요?')) return;
+    stores = stores.filter(s => s.id !== id);
+    save();
+    render();
+  }
+
+  // ─── Store Modal ──────────────────────────────────────────
+  function openAddModal() {
+    editingId = null;
+    document.getElementById('store-modal-title').textContent = '매장 추가';
+    document.getElementById('input-name').value  = '';
+    document.getElementById('input-phone').value = '';
+    openModal('store-modal');
+    setTimeout(() => document.getElementById('input-name').focus(), 200);
+  }
+
+  function openEditModal(id) {
+    const s = stores.find(s => s.id === id);
+    if (!s) return;
+    editingId = id;
+    document.getElementById('store-modal-title').textContent = '매장 수정';
+    document.getElementById('input-name').value  = s.name;
+    document.getElementById('input-phone').value = s.phone;
+    openModal('store-modal');
+    setTimeout(() => document.getElementById('input-name').focus(), 200);
+  }
+
+  function saveStore() {
+    const name  = document.getElementById('input-name').value.trim();
+    const phone = document.getElementById('input-phone').value.trim();
+    if (!name)  { alert('매장명을 입력해주세요.'); return; }
+    if (!phone) { alert('전화번호를 입력해주세요.'); return; }
+
+    if (editingId) {
+      const s = stores.find(s => s.id === editingId);
+      if (s) { s.name = name; s.phone = phone; }
+    } else {
+      stores.push({ id: uid(), name, phone, called: false, calledAt: null, notes: '' });
+    }
+    save();
+    closeModal('store-modal');
+    render();
+  }
+
+  // ─── Settings Modal ───────────────────────────────────────
+  function openSettings() {
+    document.getElementById('input-apikey').value = cfg.apiKey || '';
+    document.getElementById('input-binurl').value = cfg.binUrl || '';
+    openModal('settings-modal');
+  }
+
+  async function saveSettings() {
+    const apiKey = document.getElementById('input-apikey').value.trim();
+    const binUrl = document.getElementById('input-binurl').value.trim();
+    if (!apiKey) { alert('Master Key를 입력해주세요.'); return; }
+    if (!binUrl) { alert('Bin URL을 입력해주세요.'); return; }
+    cfg = { apiKey, binUrl };
+    localStorage.setItem('db_cfg', JSON.stringify(cfg));
+    closeModal('settings-modal');
+    await loadFromDB();
+  }
+
+  // ─── Modal helpers ────────────────────────────────────────
+  function openModal(id)  { document.getElementById(id).classList.add('open'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+  function handleOverlayClick(e, id) {
+    if (e.target === document.getElementById(id)) closeModal(id);
+  }
+
+  // ─── Utils ────────────────────────────────────────────────
+  function uid() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function formatTime(ts) {
+    return new Date(ts).toLocaleString('ko-KR', {
+      month: 'numeric', day: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+  }
+
+  // ─── Keyboard ─────────────────────────────────────────────
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      closeModal('store-modal');
+      closeModal('settings-modal');
+    }
+    if (e.key === 'Enter' && document.getElementById('store-modal').classList.contains('open')) {
+      if (document.activeElement.tagName !== 'TEXTAREA') saveStore();
+    }
+  });
+</script>
+</body>
+</html>
